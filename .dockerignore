@@ -1,0 +1,5 @@
+node_modules
+uploads/*
+compressed/*
+.git
+.DS_Store

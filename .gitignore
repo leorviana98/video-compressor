@@ -1,0 +1,7 @@
+node_modules
+uploads/*
+compressed/*
+.DS_Store
+.claude
+!uploads/.gitkeep
+!compressed/.gitkeep

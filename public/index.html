@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Compressor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🎬 Video Compressor</h1>
+    <p class="subtitle">Reduza o tamanho dos seus vídeos facilmente</p>
+
+    <!-- Upload Area -->
+    <div id="dropzone" class="dropzone">
+      <div class="dropzone-content">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p>Arraste seus vídeos aqui ou <span class="link">clique para selecionar</span></p>
+        <p class="hint">MP4, MKV, AVI, MOV, WebM — até 2GB cada — máximo 10 vídeos</p>
+      </div>
+      <input type="file" id="fileInput" accept="video/*" multiple hidden>
+    </div>
+
+    <!-- Video List -->
+    <div id="videoList" class="video-list hidden"></div>
+
+    <!-- Compression Settings (shared) -->
+    <div id="settings" class="section hidden">
+      <div class="compression-mode">
+        <h3>Modo de compressão (aplicado a todos)</h3>
+        <div class="mode-tabs">
+          <button class="mode-tab active" data-mode="percentage">Por porcentagem</button>
+          <button class="mode-tab" data-mode="targetSize">Por tamanho alvo</button>
+        </div>
+
+        <div id="percentageMode" class="mode-content">
+          <label>Reduzir para <strong id="percentValue">50</strong>% do tamanho original</label>
+          <input type="range" id="percentSlider" min="5" max="95" value="50" step="5">
+          <div class="range-labels">
+            <span>5%</span>
+            <span>95%</span>
+          </div>
+        </div>
+
+        <div id="targetSizeMode" class="mode-content hidden">
+          <label>Comprimir cada vídeo até:</label>
+          <div class="target-input">
+            <input type="number" id="targetValue" min="1" placeholder="50">
+            <select id="targetUnit">
+              <option value="MB" selected>MB</option>
+              <option value="KB">KB</option>
+              <option value="GB">GB</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <button id="compressBtn" class="btn-primary">Comprimir Todos</button>
+    </div>
+
+    <!-- Global actions after completion -->
+    <div id="globalActions" class="section hidden">
+      <button id="downloadAllBtn" class="btn-primary">Baixar Todos</button>
+      <button id="newBatchBtn" class="btn-secondary">Comprimir outros vídeos</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
