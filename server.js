@@ -126,22 +126,33 @@ app.post('/api/compress', (req, res) => {
     targetVideoBitrate = 50000; // minimum 50kbps
   }
 
-  const ext = path.extname(inputPath);
-  const outputPath = path.join('compressed', `${fileId}${ext}`);
+  const outputPath = path.join('compressed', `${fileId}.mp4`);
 
   job.status = 'compressing';
   job.progress = 0;
   job.outputPath = outputPath;
 
+  const videoBitrateK = Math.max(50, Math.floor(targetVideoBitrate / 1000));
+  const audioBitrateK = Math.max(32, Math.floor(audioBitrate / 1000));
+
+  console.log(`[${fileId}] Compressing: ${job.originalName} | video: ${videoBitrateK}k, audio: ${audioBitrateK}k`);
+
   ffmpeg(inputPath)
+    .format('mp4')
     .videoCodec('libx264')
     .audioCodec('aac')
-    .videoBitrate(Math.floor(targetVideoBitrate / 1000) + 'k')
-    .audioBitrate(Math.floor(audioBitrate / 1000) + 'k')
+    .videoBitrate(videoBitrateK + 'k')
+    .audioBitrate(audioBitrateK + 'k')
     .outputOptions([
-      `-maxrate ${Math.floor(targetVideoBitrate / 1000)}k`,
-      `-bufsize ${Math.floor(targetVideoBitrate / 500)}k`
+      '-preset', 'medium',
+      '-movflags', '+faststart',
+      `-maxrate`, `${videoBitrateK}k`,
+      `-bufsize`, `${videoBitrateK * 2}k`,
+      '-y'
     ])
+    .on('start', (cmd) => {
+      console.log(`[${fileId}] FFmpeg command: ${cmd}`);
+    })
     .on('progress', (progress) => {
       job.progress = Math.round(progress.percent || 0);
     })
@@ -150,10 +161,13 @@ app.post('/api/compress', (req, res) => {
       job.status = 'done';
       job.progress = 100;
       job.compressedSize = stats.size;
+      console.log(`[${fileId}] Done! ${(stats.size / 1024 / 1024).toFixed(1)}MB`);
     })
-    .on('error', (err) => {
+    .on('error', (err, stdout, stderr) => {
       job.status = 'error';
       job.error = err.message;
+      console.error(`[${fileId}] Error: ${err.message}`);
+      console.error(`[${fileId}] stderr: ${stderr}`);
     })
     .save(outputPath);
 
