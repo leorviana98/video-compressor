@@ -36,6 +36,18 @@ const upload = multer({
 // Store progress and file info
 const jobs = new Map();
 
+// Queue system - max 2 concurrent FFmpeg processes
+const MAX_CONCURRENT = 2;
+let activeCount = 0;
+const queue = [];
+
+function processQueue() {
+  while (activeCount < MAX_CONCURRENT && queue.length > 0) {
+    const { fileId } = queue.shift();
+    startCompression(fileId);
+  }
+}
+
 // Get video metadata with ffprobe
 function getVideoInfo(filePath) {
   return new Promise((resolve, reject) => {
@@ -128,14 +140,40 @@ app.post('/api/compress', (req, res) => {
 
   const outputPath = path.join('compressed', `${fileId}.mp4`);
 
-  job.status = 'compressing';
   job.progress = 0;
   job.outputPath = outputPath;
+  job.targetVideoBitrate = targetVideoBitrate;
+  job.audioBitrate = audioBitrate;
 
+  // Enqueue or start immediately
+  if (activeCount < MAX_CONCURRENT) {
+    startCompression(fileId);
+  } else {
+    job.status = 'queued';
+    queue.push({ fileId });
+    console.log(`[${fileId}] Queued (${queue.length} in queue, ${activeCount} active)`);
+  }
+
+  res.json({
+    message: job.status === 'queued' ? 'Na fila de compressão' : 'Compressão iniciada',
+    targetSize: targetSizeBytes,
+    targetVideoBitrate
+  });
+});
+
+// Start FFmpeg compression for a job
+function startCompression(fileId) {
+  const job = jobs.get(fileId);
+  if (!job) return;
+
+  activeCount++;
+  job.status = 'compressing';
+
+  const { inputPath, outputPath, targetVideoBitrate, audioBitrate } = job;
   const videoBitrateK = Math.max(50, Math.floor(targetVideoBitrate / 1000));
   const audioBitrateK = Math.max(32, Math.floor(audioBitrate / 1000));
 
-  console.log(`[${fileId}] Compressing: ${job.originalName} | video: ${videoBitrateK}k, audio: ${audioBitrateK}k`);
+  console.log(`[${fileId}] Compressing: ${job.originalName} | video: ${videoBitrateK}k, audio: ${audioBitrateK}k (${activeCount} active)`);
 
   ffmpeg(inputPath)
     .format('mp4')
@@ -161,22 +199,20 @@ app.post('/api/compress', (req, res) => {
       job.status = 'done';
       job.progress = 100;
       job.compressedSize = stats.size;
-      console.log(`[${fileId}] Done! ${(stats.size / 1024 / 1024).toFixed(1)}MB`);
+      activeCount--;
+      console.log(`[${fileId}] Done! ${(stats.size / 1024 / 1024).toFixed(1)}MB (${activeCount} active)`);
+      processQueue();
     })
     .on('error', (err, stdout, stderr) => {
       job.status = 'error';
       job.error = err.message;
+      activeCount--;
       console.error(`[${fileId}] Error: ${err.message}`);
       console.error(`[${fileId}] stderr: ${stderr}`);
+      processQueue();
     })
     .save(outputPath);
-
-  res.json({
-    message: 'Compressão iniciada',
-    targetSize: targetSizeBytes,
-    targetVideoBitrate
-  });
-});
+}
 
 // Progress endpoint
 app.get('/api/progress/:id', (req, res) => {

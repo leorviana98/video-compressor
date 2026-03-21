@@ -56,7 +56,7 @@ function uploadFile(file) {
     localId: id,
     fileId: null,
     name: file.name,
-    status: 'uploading', // uploading | uploaded | compressing | done | error
+    status: 'uploading', // uploading | uploaded | queued | compressing | done | error
     uploadProgress: 0,
     compressProgress: 0,
     size: file.size,
@@ -151,6 +151,13 @@ function renderCard(video) {
         <div class="card-status ready">
           <span class="badge badge-ready">Pronto</span>
           <span class="card-meta">${formatSize(video.size)} · ${formatDuration(video.info.duration)} · ${video.info.resolution}</span>
+        </div>`;
+      break;
+    case 'queued':
+      statusHTML = `
+        <div class="card-status uploading">
+          <span>Na fila... aguardando</span>
+          <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
         </div>`;
       break;
     case 'compressing':
@@ -271,7 +278,7 @@ $('#compressBtn').addEventListener('click', () => {
 });
 
 async function compressVideo(video, opts) {
-  video.status = 'compressing';
+  video.status = 'queued';
   video.compressProgress = 0;
   renderCard(video);
 
@@ -291,6 +298,12 @@ async function compressVideo(video, opts) {
       return;
     }
 
+    const data = await res.json();
+    if (data.message === 'Na fila de compressão') {
+      video.status = 'queued';
+      renderCard(video);
+    }
+
     pollProgress(video);
   } catch {
     video.status = 'error';
@@ -306,6 +319,7 @@ function pollProgress(video) {
       const res = await fetch(`/api/progress/${video.fileId}`);
       const data = await res.json();
 
+      video.status = data.status;
       video.compressProgress = data.progress;
       renderCard(video);
 
